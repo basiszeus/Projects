@@ -36,7 +36,7 @@ assistant_model.to(device)
 print("Initialising ASR pipeline")
 
 pipe = pipeline(
-    "automatic-speech-recognitition",
+    "automatic-speech-recognition",
     model = model,
     tokenizer=processor.tokenizer,
     feature_extractor = processor.feature_extractor,
