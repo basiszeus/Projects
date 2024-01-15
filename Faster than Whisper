@@ -1,0 +1,53 @@
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+import torch 
+
+
+device = "cuda"
+torch_dtype = torch.float16
+
+model_id = "openai/whisper-large-v2"
+
+print(f"Loading main model {model_id}")
+
+model = AutoModelForSpeechSeq2Seq.from_pretrained(
+    model_id,torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
+)
+
+model.to(device)
+
+processor = AutoProcessor.from_pretrained(model_id)
+
+####
+
+from transformers import AutoModelForCausalLM
+
+assistant_model_id = "distil-whisper/distil-large-v2"
+
+print(f"Loading main model {assistant_model_id}")
+
+assistant_model =   AutoModelForCausalLM.from_pretrained(
+    assistant_model_id,torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
+)
+assistant_model.to(device)
+
+
+####
+
+print("Initialising ASR pipeline")
+
+pipe = pipeline(
+    "automatic-speech-recognitition",
+    model = model,
+    tokenizer=processor.tokenizer,
+    feature_extractor = processor.feature_extractor,
+    max_new_tokens=128,
+    generate_kwargs = {"assistant_model": assistant_model},
+    torch_dtype=torch_dtype,
+    device=device
+)
+
+####
+
+print("Transcription")
+_ = pipe("Put your audio file here")
+print(_)
