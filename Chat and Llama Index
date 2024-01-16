@@ -1,0 +1,108 @@
+import os
+from llama_index.llms import OpenAI
+from llama_index import VectorStoreIndex, SimpleDirectoryReader
+from IPython.display import Markdown, display 
+import openai
+from dotenv import load_dotenv
+
+#Python 3.8, If we are using conda : "conda install python=3.8" on the existing env you are working on
+
+# Load your .env variables if any
+load_dotenv()
+
+# OpenAI API setup (make sure to use your own key and not expose it in the code)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+openai.api_key = OPENAI_API_KEY
+
+############# First Step for the Schema
+
+#Load the doc from folder
+doc = SimpleDirectoryReader("Data").load_data() #Create A folder where you will put your doc, mine was called Data
+#print(doc) #Verification If I have access to the doc
+
+############# Second Step from the Schema
+index = VectorStoreIndex.from_documents(doc) #Chunk + Embedding + Vector Store
+
+
+############# Query Engine
+query_engine = index.as_query_engine() #IF you want Memory you need to write query_engine = index.as_chat_engine()
+
+############# Response
+
+response = query_engine.query("What is a data strategy?")
+
+print(response) 
+
+# A data strategy is a plan or framework that helps a company achieve its goals by effectively utilizing data. It involves the principles and execution of using data analysis as an entity, guiding the company from one point to another. A successful data strategy requires communication within the organization and between different departments, as well as the presence of cross-functional leaders who take responsibility for interdivisional communication. Additionally, having the right skills at the right time is crucial for the implementation of a data strategy.
+
+####################################################################################################[Optional]
+
+############# Context
+index.storage_context.persist() # It will create a storage folder, inside of it multiple Json files
+
+# To be able to load a vector stored in storage
+from llama_index import StorageContext, load_index_from_storage
+storage_context = StorageContext.from_defaults(persist_dir="./storage") #Using Storage Context to read the content of the Index
+index = load_index_from_storage(storage_context = storage_context) #From the storage Context that we just created we will re-create the Index
+
+####################################################################################################[Optional]
+############# Change the LLM
+from llama_index import ServiceContext, set_global_service_context
+llm = OpenAI(model = "gpt-3.5-turbo",
+             temperature=0, 
+             max_tokens=256)
+# Configuration of the service context (change the default configuration)
+service_context = ServiceContext.from_defaults(llm=llm)
+# Set global service context
+index = VectorStoreIndex.from_documents(doc, service_context=service_context) #Use the custom llm in the vector store index that we already created
+
+
+############# Free Alternative like Google PaLM
+from llama_index.llms import PaLM
+service_context = ServiceContext.from_defaults(llm=PaLM())
+index = VectorStoreIndex.from_documents(doc, service_context=service_context) 
+# Note : You need to set the API key for PaLM
+## import pprint
+## import google.generativeai as palm
+## palm_api_key = ""
+## palm.configure(api_key=palm_api_key)
+
+############# Change the Chunk Size
+service_context = ServiceContext.from_defaults(llm=llm, chunk_size=1000, chunk_overlap=10) #Check_overlap is a method where consecutive chunks of data have a portion that overlaps with each other
+
+####################################################################################################[Optional]
+############# Open Source LLM from HuggingFace
+
+from llama_index.llms import HuggingFaceLLM
+from llama_index.prompts import PromptTemplate
+import torch
+from llama_index.llms import HuggingFaceLLM
+
+system_prompt = """<|SYSTEM|># StableLM Tuned (Alpha version)
+- StableLM is a helpful and harmless open-source AI language model developed by StabilityAI.
+- StableLM is excited to be able to help the user, but will refuse to do anything that could be considered harmful to the user.
+- StableLM is more than just an information source, StableLM is also able to write poetry, short stories, and make jokes.
+- StableLM will refuse to participate in anything that could harm a human.
+"""
+
+#This will wrap the default prompts that are internal to llama-index
+query_wrapper_prompt = PromptTemplate("<|USER|>{query_str}<|ASSISTANT|>")
+
+#Explaining:
+# When you use query_wrapper_prompt, you would replace {query_str} with an actual query string.
+# For example, if query_str is "What is the capital of Algeria?", the query_wrapper_prompt would be used to create a complete prompt by inserting this string into the template.
+
+llm = HuggingFaceLLM(
+    context_window=4096,
+    max_new_tokens=256,
+    generate_kwargs={"temperature":0.7, "do_sample":False}, # do_sample parameter determines whether the model should sample from the distribution of possible outputs (tokens), or simply choose the most likely token at each step of generation.
+    system_prompt=system_prompt,
+    query_wrapper_prompt=query_wrapper_prompt,
+    tokenizer_name= "stabilityai/stablelm-base-alpha-7b",
+    model_name= "stabilityai/stablelm-base-alpha-7b",
+    device_map="auto", #Use all your GPUs
+    stopping_ids= [50278, 50279, 50277, 1, 0], # refers to a parameter used during the text generation process to signify which token IDs should signal the model to stop generating further tokens. Depends on each models, for this one : https://github.com/Stability-AI/StableLM
+    tokenizer_kwargs= {"max_length": 4096}
+    )
+
+service_context = ServiceContext.from_defaults(llm=llm, chunk_size=1000, chunk_overlap=10) 
