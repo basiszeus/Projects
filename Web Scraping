@@ -1,0 +1,26 @@
+from scrapegraphai.graphs import SmartScraperGraph
+
+graph_config = {
+    "llm": {
+        "model": "ollama/llama3",
+        "temperature": 0,
+        "format": "json", 
+        "base_url": "http://localhost:11434", 
+    },
+    "embeddings": {
+        "model": "ollama/nomic-embed-text",
+        "base_url": "http://localhost:11434", 
+    },
+    "verbose": True,
+}
+
+smart_scraper_graph = SmartScraperGraph(
+    prompt="List me all the repositories",
+    source="https://github.com/basiszeus",
+    config=graph_config
+)
+
+result = smart_scraper_graph.run()
+print(result)
+
+#More information here : https://medium.com/@soulawalid/local-ai-powered-web-and-local-docs-scraping-at-no-cost-ba027e98380a
