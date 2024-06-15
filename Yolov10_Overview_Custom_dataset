@@ -1,0 +1,59 @@
+!git clone https://github.com/THU-MIG/yolov10.git
+
+cd yolov10
+!pip install -r requirements.txt
+pip install -e
+!wget https://github.com/THU-MIG/yolov10/releases/download/v1.0/yolov10s.pt
+
+from roboflow import Roboflow
+rf = Roboflow(api_key="Put your API Key")
+project = rf.workspace("vladutc").project("x-ray-baggage")
+version = project.version(3)
+dataset = version.download("yolov8")
+
+# Training
+
+!yolo task=detect mode=train epochs=25 batch=32 plots=True 
+model='yolov10s.pt' 
+data='X-Ray-Baggage-3\data.yaml' 
+
+# Results
+
+from PIL import Image 
+
+# Use the Image.open function to open the image
+img = Image.open('/content/yolov10/runs/detect/train/results.png')
+
+# Resize the image if needed
+img = img.resize((1000, int(1000 * img.height / img.width))) 
+
+# Display the image
+display(img)
+
+# Prediction
+
+model_path = '/content/yolov10/runs/detect/train/weights/best.pt'
+model = YOLOv10(model_path)
+results = model(source='/content/yolov10/X-Ray-Baggage-3/test/images', conf=0.25,save=True)
+
+import glob
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+
+images = glob.glob('/content/yolov10/runs/detect/predict/*.jpg')
+
+images_to_display = images[:20]
+
+fig, axes = plt.subplots(2, 5, figsize=(20, 10))
+
+for i, ax in enumerate(axes.flat):
+    if i < len(images_to_display):
+        img = mpimg.imread(images_to_display[i])
+        ax.imshow(img)
+        ax.axis('off')  
+    else:
+        ax.axis('off')  
+
+plt.tight_layout()
+plt.show()
+
